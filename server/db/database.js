@@ -27,6 +27,24 @@ export function getDb() {
   const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
   _db.exec(schema);
 
+  // ── Additive migration ─────────────────────────────────────────────────
+  // SQLite has no "ALTER TABLE ADD COLUMN IF NOT EXISTS", so we attempt each
+  // new column individually and swallow the "duplicate column" error.
+  // This keeps the server safe against both fresh and existing databases.
+  const newColumns = [
+    'ALTER TABLE tickets ADD COLUMN intent TEXT',
+    'ALTER TABLE tickets ADD COLUMN recommended_action TEXT',
+    'ALTER TABLE tickets ADD COLUMN analysis_source TEXT',
+  ];
+  for (const sql of newColumns) {
+    try {
+      _db.exec(sql);
+    } catch (e) {
+      // Ignore "duplicate column name" — column already exists
+      if (!e.message.includes('duplicate column name')) throw e;
+    }
+  }
+
   console.log(`[db] SQLite initialised → ${DB_PATH}`);
   return _db;
 }

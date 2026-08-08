@@ -23,15 +23,18 @@ CREATE TABLE IF NOT EXISTS tickets (
 
   -- LLM classification outputs
   priority           TEXT,  -- critical | high | medium | low
-  category           TEXT,  -- billing | technical | account | general
-  department         TEXT,  -- finance | engineering | support | ops
+  category           TEXT,  -- billing | technical | account | delivery | refund | general
+  department         TEXT,  -- finance | engineering | support | operations
   summary            TEXT,  -- one-line LLM summary of the ticket
+  intent             TEXT,  -- what the customer wants to achieve
+  recommended_action TEXT,  -- resolve | escalate | create_incident | create_kb
+  analysis_source    TEXT,  -- gemini | fallback
 
-  -- automation decision & execution
+  -- automation decision & execution (Phase 3+)
   action_taken       TEXT,  -- resolve | escalate | create_incident | create_kb
   action_detail      TEXT,  -- JSON blob with action-specific context
 
-  -- generated customer reply
+  -- generated customer reply (Phase 3+)
   customer_response  TEXT,
 
   created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
