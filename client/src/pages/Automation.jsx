@@ -20,9 +20,7 @@ export function Automation({ ticketId }) {
       try {
         const data = await api.getTicket(ticketId);
         setTicketData(data);
-        // If already completed, show result immediately
         if (data.ticket.status === 'completed' || data.ticket.status === 'failed') {
-          // Re-map the API response to match the automation result format for consistency
           setAutomationResult({
             ticket: data.ticket,
             executionResult: data.ticket.action_taken ? {
@@ -50,7 +48,6 @@ export function Automation({ ticketId }) {
     try {
       const result = await api.automateTicket(ticketId);
       setAutomationResult(result);
-      // We don't setShowResult(true) immediately. We wait for the Timeline to finish its visual sequence.
     } catch (err) {
       setError(err.message || 'Automation failed');
       setIsRunning(false);
@@ -64,67 +61,131 @@ export function Automation({ ticketId }) {
     }
   };
 
-  if (loading) return <div className="p-8 text-text-muted font-mono text-sm">LOADING CONTEXT...</div>;
+  if (loading) return <div className="p-8 text-text-muted font-mono text-sm uppercase tracking-widest">Loading Context...</div>;
   if (error && !ticketData) return <div className="p-8 text-status-failed text-sm">{error}</div>;
 
   const { ticket } = ticketData;
 
+  const decisionData = automationResult?.executionResult || (ticket.action_taken ? { action: ticket.action_taken, ...JSON.parse(ticket.action_detail || '{}') } : null);
+
   return (
-    <div className="p-8 max-w-[800px] mx-auto animate-in fade-in duration-300 pb-24">
-      <div className="mb-8">
-        <div className="flex items-start justify-between mb-2">
-          <h1 className="font-mono text-xl tracking-tight text-text-primary">
-            SL-{ticket.id.toString().padStart(4, '0')}
-          </h1>
+    <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-300 pb-32">
+      {/* Header section */}
+      <div className="mb-10 flex flex-col items-start">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="bg-base-elevated px-3 py-1 rounded border border-base-border">
+            <span className="font-mono text-sm text-text-primary tracking-wide">
+              SL-{ticket.id.toString().padStart(4, '0')}
+            </span>
+          </div>
           {ticket.priority && <PriorityIndicator priority={ticket.priority} />}
         </div>
-        <h2 className="text-2xl font-semibold tracking-tight text-text-primary mb-6">{ticket.subject}</h2>
         
-        <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-base-surface border border-base-border rounded">
-          <div>
-            <span className="label block mb-1">CUSTOMER</span>
-            <span className="text-sm">{ticket.customer_name}</span>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary mb-3">
+          {ticket.subject}
+        </h1>
+        
+        <div className="flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2 text-text-secondary">
+            <span className="label">CUSTOMER</span>
+            <span>{ticket.customer_name}</span>
           </div>
-          <div>
-            <span className="label block mb-1">CREATED</span>
-            <span className="text-sm font-mono">{new Date(ticket.created_at).toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div>
-          <span className="label block mb-2">REQUEST BODY</span>
-          <div className="p-4 border border-base-border rounded bg-base-bg text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-            {ticket.body}
+          <div className="flex items-center gap-2 text-text-secondary">
+            <span className="label">CREATED</span>
+            <span className="font-mono">{new Date(ticket.created_at).toLocaleString()}</span>
           </div>
         </div>
       </div>
 
-      {ticket.status === 'pending' && !isRunning && !automationResult && (
-        <div className="py-8 flex justify-center border-t border-base-border mt-8 border-dashed">
-          <button 
-            onClick={handleRunSlave}
-            className="bg-text-primary text-base-bg px-8 py-3 font-semibold rounded hover:bg-text-secondary transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] tracking-wide"
-          >
-            RUN SLAVE
-          </button>
+      <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-12 items-start">
+        {/* Left Column: Execution */}
+        <div className="flex flex-col gap-6">
+          
+          {(isRunning || automationResult) ? (
+            <AutomationTimeline 
+              isRunning={isRunning} 
+              finalData={automationResult} 
+              onComplete={handleTimelineComplete} 
+            />
+          ) : (
+            <div className="border border-base-border bg-base-surface p-12 rounded flex flex-col items-center justify-center border-dashed">
+              <div className="text-text-muted text-sm font-mono tracking-widest uppercase mb-6">Workflow Pending</div>
+              <button 
+                onClick={handleRunSlave}
+                className="bg-text-primary text-base-bg px-10 py-3 font-semibold rounded hover:bg-text-secondary transition-colors tracking-widest uppercase text-sm"
+              >
+                RUN SLAVE
+              </button>
+            </div>
+          )}
+
+          {showResult && automationResult && (
+            <div className="mt-4">
+              <AutomationResult data={automationResult} />
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Request & Decision */}
+        <div className="flex flex-col gap-8">
+          <div>
+            <h3 className="label mb-4">REQUEST</h3>
+            <div className="p-5 border border-base-border rounded bg-base-surface text-sm text-text-primary whitespace-pre-wrap leading-relaxed shadow-sm">
+              "{ticket.body}"
+            </div>
+          </div>
+
+          {(decisionData || ticket.priority) && (
+             <div>
+               <h3 className="label mb-4">SYSTEM DECISION</h3>
+               <div className="border border-base-border rounded bg-base-surface p-5 shadow-sm">
+                 <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                   {decisionData?.category && (
+                     <div>
+                       <span className="label block mb-1">CATEGORY</span>
+                       <span className="text-sm font-medium">{decisionData.category.toUpperCase()}</span>
+                     </div>
+                   )}
+                   {ticket.priority && (
+                     <div>
+                       <span className="label block mb-1">PRIORITY</span>
+                       <span className="text-sm font-medium">{ticket.priority.toUpperCase()}</span>
+                     </div>
+                   )}
+                   {decisionData?.department && (
+                     <div>
+                       <span className="label block mb-1">DEPARTMENT</span>
+                       <span className="text-sm font-medium">{decisionData.department.toUpperCase()}</span>
+                     </div>
+                   )}
+                   {decisionData?.action && (
+                     <div>
+                       <span className="label block mb-1">ACTION</span>
+                       <span className="text-sm font-medium text-status-processing">{decisionData.action.replace('_', ' ').toUpperCase()}</span>
+                     </div>
+                   )}
+                 </div>
+                 
+                 {decisionData?.reason && (
+                   <div className="mt-6 pt-5 border-t border-base-border">
+                     <span className="label block mb-2">REASONING</span>
+                     <div className="text-sm text-text-secondary italic leading-relaxed">
+                       "{decisionData.reason}"
+                     </div>
+                   </div>
+                 )}
+               </div>
+             </div>
+          )}
+        </div>
+      </div>
+      
+      {showResult && automationResult?.audit_log && (
+        <div className="mt-12">
+           <AuditTrail auditLog={automationResult.audit_log} />
         </div>
       )}
 
-      {(isRunning || automationResult) && (
-        <AutomationTimeline 
-          isRunning={isRunning} 
-          finalData={automationResult} 
-          onComplete={handleTimelineComplete} 
-        />
-      )}
-
-      {showResult && automationResult && (
-        <>
-          <AutomationResult data={automationResult} />
-          <AuditTrail auditLog={automationResult.audit_log} />
-        </>
-      )}
-      
       {error && isRunning && (
          <div className="mt-6 p-4 bg-status-failed/10 border border-status-failed/20 text-status-failed text-sm rounded">
            {error}

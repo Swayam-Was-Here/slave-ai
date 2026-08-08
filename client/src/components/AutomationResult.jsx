@@ -1,15 +1,54 @@
 import React from 'react';
 import { PriorityIndicator } from './Indicators';
+import { XCircle, CheckCircle2 } from 'lucide-react';
 
 export function AutomationResult({ data }) {
   if (!data) return null;
 
-  const { ticket, executionResult, customerResponse } = data;
+  const { ticket, executionResult, customerResponse, audit_log } = data;
+  const isFailed = ticket.status === 'failed';
+  
+  const failedStep = isFailed ? audit_log?.find(l => l.status === 'error')?.step : null;
+  const failedReason = isFailed ? audit_log?.find(l => l.status === 'error')?.message : null;
+
+  if (isFailed) {
+    return (
+      <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="border border-status-failed/50 bg-status-failed/5 p-6 rounded shadow-sm">
+          <div className="flex items-center gap-3 mb-6 text-status-failed">
+            <XCircle className="w-5 h-5" />
+            <h3 className="label !text-status-failed m-0">AUTOMATION FAILED</h3>
+          </div>
+          
+          <div className="mb-4">
+            <span className="label block mb-2 text-text-primary">FAILURE POINT</span>
+            <div className="text-sm font-medium text-status-failed uppercase tracking-wider">
+              {failedStep ? `${failedStep} FAILED` : 'WORKFLOW ERROR'}
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <span className="label block mb-2 text-text-primary">DIAGNOSTIC</span>
+            <div className="text-sm text-text-secondary leading-relaxed">
+              {failedReason || "SLAVE could not analyse this request or execute the action."}
+            </div>
+          </div>
+
+          <div className="p-4 bg-base-bg border border-base-border rounded text-center">
+            <span className="font-mono text-sm tracking-widest uppercase text-text-muted">NO ACTION EXECUTED</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="border border-base-border bg-base-surface p-6 rounded">
-        <h3 className="label mb-6 text-status-completed">AUTOMATION COMPLETE</h3>
+      <div className="border border-base-border bg-base-surface p-6 rounded shadow-sm">
+        <div className="flex items-center gap-3 mb-6 text-status-completed">
+          <CheckCircle2 className="w-5 h-5" />
+          <h3 className="label !text-status-completed m-0">AUTOMATION COMPLETE</h3>
+        </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <ResultItem label="ACTION" value={executionResult?.action?.replace('_', ' ').toUpperCase()} />
@@ -27,7 +66,7 @@ export function AutomationResult({ data }) {
           <ResultItem label="DEPARTMENT" value={executionResult?.department?.toUpperCase()} />
           
           <div>
-            <span className="label block mb-1">PRIORITY</span>
+            <span className="label block mb-2 text-text-secondary">PRIORITY</span>
             <PriorityIndicator priority={ticket.priority} />
           </div>
         </div>
@@ -35,8 +74,8 @@ export function AutomationResult({ data }) {
         <div className="divider mb-6" />
         
         <div>
-          <h3 className="label mb-4">CUSTOMER RESPONSE</h3>
-          <div className="p-4 bg-base-bg border border-base-border rounded text-sm whitespace-pre-wrap text-text-primary leading-relaxed font-sans">
+          <h3 className="label mb-4 text-text-secondary">CUSTOMER RESPONSE</h3>
+          <div className="p-5 bg-base-bg border border-base-border rounded text-sm whitespace-pre-wrap text-text-primary leading-relaxed font-sans shadow-inner">
             {customerResponse}
           </div>
         </div>
@@ -49,7 +88,7 @@ function ResultItem({ label, value }) {
   if (!value) return null;
   return (
     <div>
-      <span className="label block mb-1">{label}</span>
+      <span className="label block mb-2 text-text-secondary">{label}</span>
       <span className="font-mono text-sm text-text-primary">{value}</span>
     </div>
   );

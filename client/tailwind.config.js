@@ -13,34 +13,35 @@ export default {
       colors: {
         // Base surfaces
         base: {
-          bg:      '#0A0A0A',
-          surface: '#111111',
-          border:  '#1F1F1F',
-          hover:   '#161616',
+          bg:      '#09090b', // Zinc 950
+          surface: '#121214', // Slightly lighter
+          elevated:'#18181b', // Zinc 900
+          border:  '#27272a', // Zinc 800
+          hover:   '#1f1f22',
         },
         // Text
         text: {
-          primary:   '#F2F2F2',
-          secondary: '#888888',
-          muted:     '#444444',
+          primary:   '#f4f4f5', // Zinc 50
+          secondary: '#a1a1aa', // Zinc 400
+          muted:     '#52525b', // Zinc 600
         },
         // Priority
         priority: {
-          critical: '#EF4444',
-          high:     '#F97316',
-          medium:   '#EAB308',
-          low:      '#6B7280',
+          critical: '#ef4444',
+          high:     '#f97316',
+          medium:   '#eab308',
+          low:      '#71717a',
         },
         // Status
         status: {
-          pending:    '#6B7280',
-          processing: '#3B82F6',
-          completed:  '#22C55E',
-          failed:     '#EF4444',
+          pending:    '#71717a',
+          processing: '#3b82f6',
+          completed:  '#22c55e',
+          failed:     '#ef4444',
         },
       },
       borderColor: {
-        DEFAULT: '#1F1F1F',
+        DEFAULT: '#27272a',
       },
     },
   },
