@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../db/database.js';
-import { classifyTicket } from '../lib/classify.js';
+import { stepClassify, stepDecide } from '../automation/pipeline.js';
 
 const router = Router();
 
@@ -10,22 +10,11 @@ const router = Router();
 
 function validateTicketBody(body) {
   const errors = [];
-  if (!body.subject?.trim())         errors.push('subject is required');
-  if (!body.body?.trim())            errors.push('body is required');
-  if (!body.customer_name?.trim())   errors.push('customer_name is required');
-  if (!body.customer_email?.trim())  errors.push('customer_email is required');
+  if (!body.subject?.trim())        errors.push('subject is required');
+  if (!body.body?.trim())           errors.push('body is required');
+  if (!body.customer_name?.trim())  errors.push('customer_name is required');
+  if (!body.customer_email?.trim()) errors.push('customer_email is required');
   return errors;
-}
-
-/** Write an audit_log row. detail can be a string or object (serialised to JSON). */
-function writeAudit(db, ticketId, step, status, detail = null) {
-  const detailStr = detail
-    ? typeof detail === 'string' ? detail : JSON.stringify(detail)
-    : null;
-  db.prepare(
-    `INSERT INTO audit_log (ticket_id, step, status, detail)
-     VALUES (?, ?, ?, ?)`
-  ).run(ticketId, step, status, detailStr);
 }
 
 /** Update ticket columns + always touch updated_at. */
@@ -39,7 +28,6 @@ function patchTicket(db, id, patch) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPORTANT: static / named routes MUST come before parameterised routes
-// so that e.g. GET /metrics/summary is not swallowed by GET /:id
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -54,7 +42,7 @@ router.get('/', (req, res) => {
   let query = 'SELECT * FROM tickets WHERE 1=1';
   const params = [];
 
-  if (status) { query += ' AND status = ?'; params.push(status); }
+  if (status)   { query += ' AND status = ?';   params.push(status); }
   if (priority) { query += ' AND priority = ?'; params.push(priority); }
 
   query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
@@ -83,6 +71,13 @@ router.get('/metrics/summary', (req, res) => {
     )
     .all();
 
+  const byAction = db
+    .prepare(
+      `SELECT action_taken, COUNT(*) as count FROM tickets
+       WHERE action_taken IS NOT NULL GROUP BY action_taken`
+    )
+    .all();
+
   const runStats = db
     .prepare(
       `SELECT
@@ -94,14 +89,13 @@ router.get('/metrics/summary', (req, res) => {
     )
     .get();
 
-  res.json({ by_status: byStatus, by_priority: byPriority, run_stats: runStats });
+  res.json({ by_status: byStatus, by_priority: byPriority, by_action: byAction, run_stats: runStats });
 });
 
 /**
  * POST /api/tickets
  * Submit a new support ticket.
- * Validates required fields, inserts with status='pending', returns the new ticket.
- * Phase 3 will fire the full automation pipeline from here.
+ * Phase 4 will fire the full pipeline from here (fire-and-forget).
  */
 router.post('/', (req, res) => {
   const db = getDb();
@@ -121,7 +115,7 @@ router.post('/', (req, res) => {
 
   const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.lastInsertRowid);
 
-  // Phase 3: pipeline.run(ticket.id) async call goes here
+  // Phase 4: runPipeline(ticket.id) fire-and-forget goes here
 
   res.status(201).json({ ticket });
 });
@@ -175,100 +169,129 @@ router.get('/:id/audit', (req, res) => {
 /**
  * POST /api/tickets/:id/analyze
  *
- * Sends the ticket to Gemini for structured classification.
- * This is the Phase 2 automation entry point — it runs classification only.
- * The full pipeline (execute + respond) is implemented in Phase 3.
+ * Phase 2 endpoint: runs AI classification only.
+ * Delegates to stepClassify from pipeline.js — no duplicated logic.
  *
- * Lifecycle:
- *   pending → processing (on start)
- *   processing → stays processing (classification done, pipeline not yet complete)
- *   processing → failed (on AI error)
- *
- * All transitions are recorded in audit_log.
+ * Lifecycle:  pending → processing (classification done, awaiting decide)
+ *             processing → failed (on AI error)
  */
 router.post('/:id/analyze', async (req, res) => {
   const db     = getDb();
   const { id } = req.params;
 
-  // ── 1. Retrieve the ticket ─────────────────────────────────────────────
   const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
   if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-  // Prevent re-analyzing a ticket that is already done or in-flight.
-  // Allow re-analysis if it previously failed (retry semantics).
   if (ticket.status === 'processing') {
-    return res.status(409).json({
-      error: 'Ticket is already being processed',
-      ticket_id: ticket.id,
-    });
+    return res.status(409).json({ error: 'Ticket is already being processed', ticket_id: ticket.id });
   }
   if (ticket.status === 'completed') {
-    return res.status(409).json({
-      error: 'Ticket has already been completed. Use the existing classification.',
-      ticket_id: ticket.id,
-    });
+    return res.status(409).json({ error: 'Ticket has already been completed', ticket_id: ticket.id });
   }
 
-  // ── 2. Mark as processing ──────────────────────────────────────────────
+  // Mark processing before the async AI call
   patchTicket(db, id, { status: 'processing' });
 
-  // ── 3. Audit: classify started ─────────────────────────────────────────
-  writeAudit(db, id, 'classify', 'started', {
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
-    fallback: process.env.AI_FALLBACK === 'true',
-  });
-
-  // ── 4. Call Gemini ─────────────────────────────────────────────────────
   let classification;
   try {
-    classification = await classifyTicket(ticket);
+    classification = await stepClassify(db, ticket);
   } catch (err) {
-    console.error(`[analyze] ticket #${id} classification failed:`, err.message);
-
-    // Record failure in audit and mark ticket as failed
-    writeAudit(db, id, 'classify', 'error', { error: err.message });
-    patchTicket(db, id, { status: 'failed' });
-
+    console.error(`[analyze] ticket #${id} failed:`, err.message);
     return res.status(502).json({
-      error: 'AI classification failed',
-      detail: err.message,
+      error:     'AI classification failed',
+      detail:    err.message,
       ticket_id: Number(id),
     });
   }
 
-  // ── 5 & 6. Validate (done inside classifyTicket) + store ──────────────
-  const { analysis_source, ...fields } = classification;
+  const updatedTicket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  const auditLog      = db
+    .prepare('SELECT * FROM audit_log WHERE ticket_id = ? ORDER BY created_at ASC')
+    .all(id);
 
-  patchTicket(db, id, {
-    category:           fields.category,
-    priority:           fields.priority,
-    department:         fields.department,
-    summary:            fields.summary,
-    intent:             fields.intent,
-    recommended_action: fields.recommended_action,
-    analysis_source,
-    // Keep status as 'processing' — the pipeline (Phase 3) will mark 'completed'
-  });
+  res.json({ ticket: updatedTicket, classification, audit_log: auditLog });
+});
 
-  // ── 7. Audit: classify done ────────────────────────────────────────────
-  writeAudit(db, id, 'classify', 'done', {
-    category:           fields.category,
-    priority:           fields.priority,
-    department:         fields.department,
-    recommended_action: fields.recommended_action,
-    analysis_source,
-  });
+/**
+ * POST /api/tickets/:id/decide
+ *
+ * Phase 3 endpoint: runs the deterministic decision engine on a classified ticket.
+ *
+ * Prerequisites: ticket must be in 'processing' status with classification data.
+ * Stores action_taken and action_detail.
+ * Does NOT execute the action yet (Phase 4).
+ *
+ * Lifecycle:  processing (classified) → processing (decision made, awaiting execution)
+ *             → failed on unexpected engine error (should not happen in practice)
+ */
+router.post('/:id/decide', (req, res) => {
+  const db     = getDb();
+  const { id } = req.params;
 
-  // ── 8. Return updated ticket + classification ──────────────────────────
+  // ── 1. Retrieve ticket ────────────────────────────────────────────────────
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  // ── 2. Ensure classification is present ───────────────────────────────────
+  if (!ticket.category || !ticket.priority) {
+    return res.status(422).json({
+      error:     'Ticket has not been classified yet. Run POST /api/tickets/:id/analyze first.',
+      ticket_id: ticket.id,
+      status:    ticket.status,
+    });
+  }
+
+  if (ticket.status === 'completed') {
+    return res.status(409).json({
+      error:     'Ticket has already been completed',
+      ticket_id: ticket.id,
+    });
+  }
+
+  // ── 3. Run the deterministic decision engine ──────────────────────────────
+  const classification = {
+    category:           ticket.category,
+    priority:           ticket.priority,
+    department:         ticket.department,
+    intent:             ticket.intent,
+    summary:            ticket.summary,
+    recommended_action: ticket.recommended_action,
+  };
+
+  let decision;
+  try {
+    decision = stepDecide(db, ticket, classification);
+  } catch (err) {
+    console.error(`[decide] ticket #${id} decision engine error:`, err.message);
+
+    // Record error audit
+    db.prepare(
+      `INSERT INTO audit_log (ticket_id, step, status, detail) VALUES (?, ?, ?, ?)`
+    ).run(id, 'decide', 'error', JSON.stringify({ error: err.message }));
+
+    return res.status(500).json({
+      error:     'Decision engine error',
+      detail:    err.message,
+      ticket_id: Number(id),
+    });
+  }
+
+  // ── 4. Return result ──────────────────────────────────────────────────────
   const updatedTicket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
   const auditLog      = db
     .prepare('SELECT * FROM audit_log WHERE ticket_id = ? ORDER BY created_at ASC')
     .all(id);
 
   res.json({
-    ticket:         updatedTicket,
-    classification: { ...fields, analysis_source },
-    audit_log:      auditLog,
+    ticket:   updatedTicket,
+    decision: {
+      action:      decision.action,
+      reason:      decision.reason,
+      confidence:  decision.confidence,
+      source:      'deterministic_rule',
+    },
+    next_step: 'POST /api/tickets/:id/execute (Phase 4)',
+    audit_log: auditLog,
   });
 });
 
