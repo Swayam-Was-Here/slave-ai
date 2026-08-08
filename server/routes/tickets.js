@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../db/database.js';
-import { stepClassify, stepDecide } from '../automation/pipeline.js';
+import { stepClassify, stepDecide, stepExecute, runPipeline } from '../automation/pipeline.js';
 
 const router = Router();
 
@@ -292,6 +292,121 @@ router.post('/:id/decide', (req, res) => {
     },
     next_step: 'POST /api/tickets/:id/execute (Phase 4)',
     audit_log: auditLog,
+  });
+});
+
+/**
+ * POST /api/tickets/:id/execute
+ *
+ * Phase 4 endpoint: runs the actual execution logic for the decided action.
+ */
+router.post('/:id/execute', (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  if (!ticket.action_taken) {
+    return res.status(422).json({
+      error: 'Ticket has not been decided yet. Run POST /api/tickets/:id/decide first.',
+      ticket_id: ticket.id,
+      status: ticket.status,
+    });
+  }
+
+  if (ticket.status === 'completed') {
+    return res.status(409).json({
+      error: 'Ticket has already been completed. Cannot execute again.',
+      ticket_id: ticket.id,
+    });
+  }
+
+  // Create an automation_run if it doesn't exist for tracking this manual step
+  let run = db.prepare('SELECT * FROM automation_runs WHERE ticket_id = ? AND status = ?').get(id, 'running');
+  if (!run) {
+    const runResult = db.prepare(`INSERT INTO automation_runs (ticket_id, status) VALUES (?, 'running')`).run(id);
+    run = { id: runResult.lastInsertRowid };
+  }
+  const startTime = Date.now();
+
+  const decision = {
+    action: ticket.action_taken,
+    reason: ticket.action_detail ? JSON.parse(ticket.action_detail).reason : ''
+  };
+
+  let executionResult;
+  try {
+    executionResult = stepExecute(db, ticket, decision);
+    
+    const duration = Date.now() - startTime;
+    db.prepare(`
+      UPDATE automation_runs 
+      SET status = 'completed', completed_at = datetime('now'), duration_ms = ? 
+      WHERE id = ?
+    `).run(duration, run.id);
+
+  } catch (err) {
+    console.error(`[execute] ticket #${id} execution error:`, err.message);
+    
+    const duration = Date.now() - startTime;
+    db.prepare(`
+      UPDATE automation_runs 
+      SET status = 'failed', completed_at = datetime('now'), duration_ms = ?, error = ? 
+      WHERE id = ?
+    `).run(duration, err.message, run.id);
+
+    return res.status(500).json({
+      error: 'Execution engine error',
+      detail: err.message,
+      ticket_id: Number(id),
+    });
+  }
+
+  const updatedTicket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  const auditLog = db.prepare('SELECT * FROM audit_log WHERE ticket_id = ? ORDER BY created_at ASC').all(id);
+
+  res.json({
+    ticket: updatedTicket,
+    executionResult,
+    next_step: 'POST /api/tickets/:id/respond (Phase 5)',
+    audit_log: auditLog,
+  });
+});
+
+/**
+ * POST /api/tickets/:id/automate
+ *
+ * Runs the full automation pipeline: classify -> decide -> execute
+ */
+router.post('/:id/automate', async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+  
+  if (ticket.status === 'processing' || ticket.status === 'completed') {
+    return res.status(409).json({ error: 'Ticket cannot be automated in its current state', status: ticket.status });
+  }
+
+  const result = await runPipeline(id);
+
+  if (!result) {
+    const run = db.prepare('SELECT * FROM automation_runs WHERE ticket_id = ? ORDER BY started_at DESC LIMIT 1').get(id);
+    return res.status(500).json({
+      error: 'Automation pipeline failed',
+      automation_run: run
+    });
+  }
+
+  const auditLog = db.prepare('SELECT * FROM audit_log WHERE ticket_id = ? ORDER BY created_at ASC').all(id);
+  const run = db.prepare('SELECT * FROM automation_runs WHERE ticket_id = ? ORDER BY started_at DESC LIMIT 1').get(id);
+
+  res.json({
+    ...result,
+    automation_run: run,
+    audit_log: auditLog
   });
 });
 

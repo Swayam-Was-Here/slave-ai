@@ -151,25 +151,46 @@ export function stepDecide(db, ticket, classification) {
   return decision;
 }
 
-// ─── Phase 4 stubs ────────────────────────────────────────────────────────────
-// These functions will be implemented in Phase 4.
-// They are declared here so the pipeline structure is complete.
+import { executeAction }   from './execute.js';
 
-// export async function stepExecute(db, ticket, decision) { /* Phase 4 */ }
-// export async function stepRespond(db, ticket, executionResult) { /* Phase 4 */ }
-// export function stepComplete(db, ticket) { /* Phase 4 */ }
+// ─── Phase 4 ──────────────────────────────────────────────────────────────────
+
+/**
+ * Step 3: Execute Action
+ * Routes to the specific action handler (resolve, escalate, create_incident, create_kb)
+ * which updates database state.
+ *
+ * @param {object} db             - better-sqlite3 instance
+ * @param {object} ticket         - ticket row from DB
+ * @param {object} decision       - decision object {action, reason, confidence}
+ * @returns {object} execution result
+ */
+export function stepExecute(db, ticket, decision) {
+  writeAudit(db, ticket.id, 'execute', 'started', { action: decision.action });
+
+  let result;
+  try {
+    result = executeAction(db, ticket, decision);
+  } catch (err) {
+    writeAudit(db, ticket.id, 'execute', 'error', { error: err.message });
+    patchTicket(db, ticket.id, { status: 'failed' });
+    throw err;
+  }
+
+  writeAudit(db, ticket.id, 'execute', 'done', result);
+  return result;
+}
+
+// ─── Phase 5 stubs ────────────────────────────────────────────────────────────
+// export async function stepRespond(db, ticket, executionResult) { /* Phase 5 */ }
+// export function stepComplete(db, ticket) { /* Phase 5 */ }
 
 // ─── Full pipeline ────────────────────────────────────────────────────────────
 
 /**
  * Run the full automation pipeline for a ticket.
  *
- * Phase 3 implements: classify → decide
- * Phase 4 will extend: classify → decide → execute → respond → complete
- *
- * This is intended to be called fire-and-forget from POST /api/tickets
- * once Phase 4 is ready. In Phase 3, the pipeline can be driven step-by-step
- * via individual API endpoints.
+ * Phase 4 implements: classify → decide → execute
  *
  * @param {number} ticketId
  */
@@ -179,12 +200,18 @@ export async function runPipeline(ticketId) {
   const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
   if (!ticket) {
     console.error(`[pipeline] ticket #${ticketId} not found`);
-    return;
+    return null;
   }
 
   console.log(`[pipeline] Starting pipeline for ticket #${ticketId}`);
 
-  // Mark ticket as processing at pipeline start
+  // Create automation_run record
+  const runResult = db.prepare(
+    `INSERT INTO automation_runs (ticket_id, status) VALUES (?, 'running')`
+  ).run(ticketId);
+  const runId = runResult.lastInsertRowid;
+  const startTime = Date.now();
+
   patchTicket(db, ticketId, { status: 'processing' });
 
   try {
@@ -193,18 +220,41 @@ export async function runPipeline(ticketId) {
     console.log(`[pipeline] #${ticketId} classified: ${classification.category} / ${classification.priority}`);
 
     // ── Step 2: Decide ─────────────────────────────────────────────────────
-    const updatedTicket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
-    const decision = stepDecide(db, updatedTicket, classification);
+    const ticketAfterClassify = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    const decision = stepDecide(db, ticketAfterClassify, classification);
     console.log(`[pipeline] #${ticketId} decision: ${decision.action} (${decision.confidence})`);
 
-    // ── Steps 3-5: Execute / Respond / Complete (Phase 4) ─────────────────
-    // TODO Phase 4: const executionResult = await stepExecute(db, updatedTicket, decision);
-    // TODO Phase 4: await stepRespond(db, updatedTicket, executionResult);
-    // TODO Phase 4: stepComplete(db, updatedTicket);
+    // ── Step 3: Execute ────────────────────────────────────────────────────
+    const ticketAfterDecide = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    const executionResult = stepExecute(db, ticketAfterDecide, decision);
+    console.log(`[pipeline] #${ticketId} executed:`, executionResult.result);
 
-    console.log(`[pipeline] #${ticketId} pipeline complete (Phase 3: classify + decide)`);
+    // ── Steps 4-5: Respond / Complete (Phase 5) ─────────────────
+    // TODO Phase 5: await stepRespond(db, updatedTicket, executionResult);
+    // TODO Phase 5: stepComplete(db, updatedTicket);
+
+    const duration = Date.now() - startTime;
+    db.prepare(`
+      UPDATE automation_runs 
+      SET status = 'completed', completed_at = datetime('now'), duration_ms = ? 
+      WHERE id = ?
+    `).run(duration, runId);
+
+    console.log(`[pipeline] #${ticketId} pipeline complete in ${duration}ms`);
+    return {
+       ticket: db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId),
+       classification,
+       decision,
+       executionResult
+    };
   } catch (err) {
     console.error(`[pipeline] #${ticketId} pipeline failed:`, err.message);
-    // Ticket is already marked 'failed' by the step that threw.
+    const duration = Date.now() - startTime;
+    db.prepare(`
+      UPDATE automation_runs 
+      SET status = 'failed', completed_at = datetime('now'), duration_ms = ?, error = ? 
+      WHERE id = ?
+    `).run(duration, err.message, runId);
+    return null;
   }
 }
