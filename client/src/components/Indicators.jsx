@@ -2,16 +2,16 @@ import React from 'react';
 
 export function PriorityIndicator({ priority }) {
   const colors = {
-    critical: 'text-priority-critical bg-priority-critical/10 border-priority-critical/20',
-    high:     'text-priority-high bg-priority-high/10 border-priority-high/20',
-    medium:   'text-priority-medium bg-priority-medium/10 border-priority-medium/20',
-    low:      'text-priority-low bg-priority-low/10 border-priority-low/20',
+    critical: 'bg-accent-red text-base-surface',
+    high:     'bg-accent-yellow text-text-primary',
+    medium:   'bg-accent-blue text-base-surface',
+    low:      'bg-accent-green text-base-surface',
   };
 
   const style = colors[priority] || colors.medium;
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono border ${style}`}>
+    <span className={`inline-flex items-center px-3 py-1 text-xs font-bold font-mono tracking-widest uppercase border-3 border-base-border shadow-neo ${style}`}>
       {priority?.toUpperCase() || 'UNKNOWN'}
     </span>
   );
@@ -19,18 +19,18 @@ export function PriorityIndicator({ priority }) {
 
 export function StatusIndicator({ status }) {
   const styles = {
-    pending:    'text-status-pending',
-    processing: 'text-status-processing',
-    completed:  'text-status-completed',
-    failed:     'text-status-failed',
+    pending:    'bg-text-muted',
+    processing: 'bg-accent-blue',
+    completed:  'bg-accent-green',
+    failed:     'bg-accent-red',
   };
 
   const colorClass = styles[status] || styles.pending;
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`w-1.5 h-1.5 rounded-full ${status === 'processing' ? 'animate-pulse' : ''} ${colorClass.replace('text-', 'bg-')}`} />
-      <span className={`text-xs font-mono uppercase tracking-wider ${colorClass}`}>
+      <span className={`w-3 h-3 border-2 border-base-border ${colorClass}`} />
+      <span className="text-xs font-bold font-mono uppercase tracking-widest text-text-primary">
         {status}
       </span>
     </div>

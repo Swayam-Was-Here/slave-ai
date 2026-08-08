@@ -3,35 +3,29 @@ import { Logo } from './Logo';
 
 export function Header({ currentView, setView }) {
   return (
-    <header className="border-b border-base-border px-8 py-4 flex items-center justify-between bg-base-bg">
+    <header className="border-b-4 border-base-border px-8 py-4 flex items-center justify-between bg-base-bg">
       <div className="flex items-center gap-12">
-        <div className="flex items-center gap-3">
-          <Logo className="w-6 h-6 text-text-primary" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-wide text-text-primary uppercase">SLAVE</span>
-            <span className="text-[10px] uppercase tracking-widest text-text-muted font-medium">Support Automation Console</span>
-          </div>
-        </div>
+        <Logo className="text-text-primary" />
         
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-4">
           <button 
             onClick={() => setView('operations')}
-            className={`text-xs font-mono tracking-widest uppercase transition-colors ${currentView === 'operations' ? 'text-text-primary font-semibold' : 'text-text-muted hover:text-text-secondary'}`}
+            className={`px-4 py-2 text-sm font-bold tracking-widest uppercase border-3 border-transparent transition-colors ${currentView === 'operations' ? 'bg-text-primary text-base-surface border-text-primary shadow-neo' : 'text-text-primary hover:border-base-border'}`}
           >
             Operations
           </button>
           <button 
             onClick={() => setView('tickets')}
-            className={`text-xs font-mono tracking-widest uppercase transition-colors ${currentView === 'tickets' ? 'text-text-primary font-semibold' : 'text-text-muted hover:text-text-secondary'}`}
+            className={`px-4 py-2 text-sm font-bold tracking-widest uppercase border-3 border-transparent transition-colors ${currentView === 'tickets' ? 'bg-text-primary text-base-surface border-text-primary shadow-neo' : 'text-text-primary hover:border-base-border'}`}
           >
             Tickets
           </button>
         </nav>
       </div>
       
-      <div className="flex items-center gap-3 bg-base-surface px-3 py-1.5 rounded border border-base-border">
-        <span className="w-2 h-2 rounded-full bg-status-completed" />
-        <span className="text-xs font-mono text-text-secondary tracking-wide">SYSTEM NOMINAL</span>
+      <div className="flex items-center gap-3 bg-base-surface px-4 py-2 border-3 border-base-border shadow-neo">
+        <span className="w-3 h-3 bg-accent-green border-2 border-base-border" />
+        <span className="text-sm font-mono font-bold text-text-primary tracking-widest uppercase">SYSTEM NOMINAL</span>
       </div>
     </header>
   );

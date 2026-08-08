@@ -54,7 +54,7 @@ export function Operations({ onSelectTicket }) {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-text-muted font-mono text-sm uppercase tracking-widest">Initializing Console...</div>;
+    return <div className="p-12 font-mono text-xl font-bold uppercase tracking-widest text-text-primary">Initializing Console...</div>;
   }
 
   // Derive system activity from all recent tickets
@@ -74,32 +74,41 @@ export function Operations({ onSelectTicket }) {
   });
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">
+    <div className="p-8 lg:p-12 max-w-[1440px] mx-auto animate-in fade-in duration-300">
       
-      <div className="mb-10">
-        <h1 className="text-xl font-semibold tracking-tight text-text-primary mb-1">AUTONOMOUS OPERATIONS</h1>
-        <p className="text-text-secondary text-sm mb-6">SLAVE is currently monitoring and executing support workflows.</p>
+      <div className="mb-12">
+        <h1 className="text-4xl lg:text-6xl font-bold tracking-tighter text-text-primary mb-2 uppercase leading-none">AUTONOMOUS<br/>OPERATIONS</h1>
+        <p className="text-text-secondary text-lg font-medium mb-12 max-w-2xl">Give SLAVE the problem. It handles the workflow.</p>
         
         <MetricsStrip metrics={metrics} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-12 mb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-12 mb-16 items-start">
         {/* Left: Latest Automation */}
         <div>
-          <h2 className="label mb-4">LATEST AUTOMATION</h2>
+          <h2 className="label mb-4 text-lg">LATEST AUTOMATION</h2>
           {latestAutomation ? (
-            <div className="border border-base-border bg-base-surface rounded overflow-hidden">
-              <div className="p-5 border-b border-base-border bg-base-elevated cursor-pointer hover:bg-base-hover transition-colors" onClick={() => onSelectTicket(latestAutomation.ticket.id)}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="font-mono text-sm text-text-primary">SL-{latestAutomation.ticket.id.toString().padStart(4, '0')}</div>
-                  <div className="text-xs font-mono uppercase text-text-secondary">
+            <div className="neo-box-lg cursor-pointer group" onClick={() => onSelectTicket(latestAutomation.ticket.id)}>
+              <div className="p-6 md:p-8 border-b-4 border-base-border bg-base-surface group-hover:bg-accent-yellow transition-colors">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="font-mono text-lg font-bold text-text-primary bg-base-surface border-3 border-base-border px-3 py-1 shadow-neo">
+                    SL-{latestAutomation.ticket.id.toString().padStart(4, '0')}
+                  </div>
+                  <div className="text-sm font-bold font-mono uppercase text-text-primary border-b-3 border-text-primary">
                     {latestAutomation.ticket.priority || 'PENDING'}
                   </div>
                 </div>
-                <div className="text-base font-medium text-text-primary truncate">{latestAutomation.ticket.subject}</div>
-                <div className="text-xs text-text-muted mt-1 uppercase tracking-wider">{latestAutomation.ticket.department || 'ROUTING'}</div>
+                <div className="text-3xl font-bold text-text-primary uppercase leading-tight mb-4">{latestAutomation.ticket.subject}</div>
+                <div className="flex flex-wrap gap-3">
+                  <span className="font-mono text-sm font-bold uppercase border-3 border-base-border bg-base-surface px-3 py-1">{latestAutomation.ticket.department || 'ROUTING'}</span>
+                  {latestAutomation.executionResult?.action && (
+                    <span className="font-mono text-sm font-bold uppercase border-3 border-base-border bg-text-primary text-base-surface px-3 py-1">
+                      {latestAutomation.executionResult.action.replace('_', ' ')}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="px-1 pb-1">
+              <div className="p-6 md:p-8 bg-base-bg">
                 <AutomationTimeline 
                   isRunning={latestAutomation.ticket.status === 'processing'} 
                   finalData={latestAutomation.ticket.status !== 'pending' ? latestAutomation : null}
@@ -108,32 +117,32 @@ export function Operations({ onSelectTicket }) {
               </div>
             </div>
           ) : (
-            <div className="p-8 border border-base-border border-dashed rounded text-center text-text-muted text-sm">NO ACTIVE AUTOMATIONS</div>
+            <div className="p-12 neo-box text-center font-bold font-mono text-lg uppercase">NO ACTIVE AUTOMATIONS</div>
           )}
         </div>
 
         {/* Right: System Activity */}
-        <div>
-          <h2 className="label mb-4">SYSTEM ACTIVITY</h2>
-          <div className="border border-base-border bg-base-surface rounded p-5 space-y-4 h-full">
+        <div className="h-full">
+          <h2 className="label mb-4 text-lg">SYSTEM ACTIVITY</h2>
+          <div className="neo-box flex flex-col">
             {systemActivity.length > 0 ? systemActivity.map((act, i) => (
-              <div key={`${act.id}-${i}`} className="flex flex-col gap-1">
-                <div className="font-mono text-xs text-text-muted">
-                  {new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              <div key={`${act.id}-${i}`} className={`flex flex-col gap-1 p-4 ${i !== systemActivity.length - 1 ? 'border-b-3 border-base-border' : ''} hover:bg-base-hover transition-colors`}>
+                <div className="font-mono text-sm font-bold text-text-muted">
+                  {new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div className={`text-sm ${act.status === 'failed' ? 'text-status-failed' : 'text-text-primary'}`}>
+                <div className={`text-base font-bold uppercase leading-tight ${act.status === 'failed' ? 'text-status-failed' : 'text-text-primary'}`}>
                   {act.message}
                 </div>
               </div>
             )) : (
-               <div className="text-sm text-text-muted">No recent activity.</div>
+               <div className="p-8 text-base font-bold uppercase text-text-muted text-center">No recent activity.</div>
             )}
           </div>
         </div>
       </div>
       
       <div>
-        <h2 className="label mb-4">RECENT AUTOMATIONS</h2>
+        <h2 className="label mb-4 text-lg">RECENT AUTOMATIONS</h2>
         <TicketTable tickets={recentTickets} onSelectTicket={onSelectTicket} />
       </div>
     </div>

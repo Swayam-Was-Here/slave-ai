@@ -1,6 +1,6 @@
 import React from 'react';
 import { PriorityIndicator } from './Indicators';
-import { XCircle, CheckCircle2 } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 
 export function AutomationResult({ data }) {
   if (!data) return null;
@@ -13,61 +13,46 @@ export function AutomationResult({ data }) {
 
   if (isFailed) {
     return (
-      <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        <div className="border border-status-failed/50 bg-status-failed/5 p-6 rounded shadow-sm">
-          <div className="flex items-center gap-3 mb-6 text-status-failed">
-            <XCircle className="w-5 h-5" />
-            <h3 className="label !text-status-failed m-0">AUTOMATION FAILED</h3>
+      <div className="space-y-6 mt-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="neo-box-lg border-accent-red bg-accent-red text-base-surface p-8">
+          <div className="flex items-center gap-4 mb-8">
+            <X className="w-12 h-12" />
+            <h3 className="text-4xl font-bold tracking-tighter m-0 uppercase leading-none">AUTOMATION<br/>FAILED</h3>
           </div>
           
-          <div className="mb-4">
-            <span className="label block mb-2 text-text-primary">FAILURE POINT</span>
-            <div className="text-sm font-medium text-status-failed uppercase tracking-wider">
+          <div className="mb-6 bg-base-surface text-text-primary border-3 border-base-border p-6 shadow-neo">
+            <span className="label block mb-2 text-text-muted">FAILURE POINT</span>
+            <div className="text-xl font-bold uppercase tracking-wider mb-4">
               {failedStep ? `${failedStep} FAILED` : 'WORKFLOW ERROR'}
             </div>
-          </div>
-          
-          <div className="mb-6">
-            <span className="label block mb-2 text-text-primary">DIAGNOSTIC</span>
-            <div className="text-sm text-text-secondary leading-relaxed">
+            
+            <span className="label block mb-2 text-text-muted">DIAGNOSTIC</span>
+            <div className="text-lg font-medium leading-relaxed">
               {failedReason || "SLAVE could not analyse this request or execute the action."}
             </div>
           </div>
 
-          <div className="p-4 bg-base-bg border border-base-border rounded text-center">
-            <span className="font-mono text-sm tracking-widest uppercase text-text-muted">NO ACTION EXECUTED</span>
+          <div className="p-4 bg-base-border text-base-surface border-3 border-base-border text-center shadow-neo">
+            <span className="font-mono text-lg font-bold tracking-widest uppercase">NO ACTION EXECUTED</span>
           </div>
         </div>
       </div>
     );
   }
 
-  // Extract source from audit log for response if available, or just rely on ticket properties
-  const analysisSource = ticket.analysis_source || 'gemini';
-  
-  // Look for respond step in audit log
-  const respondLog = audit_log?.find(l => l.step === 'respond' && l.status === 'done');
-  let responseSource = 'gemini';
-  if (respondLog && respondLog.detail) {
-    try {
-      const detail = JSON.parse(respondLog.detail);
-      if (detail.source) responseSource = detail.source;
-    } catch (e) {
-      // ignore
-    }
-  }
+  const responseSource = audit_log?.find(l => l.step === 'respond' && l.status === 'done')?.detail?.includes('fallback') ? 'fallback' : 'gemini';
 
   return (
-    <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="border border-base-border bg-base-surface p-6 rounded shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3 text-status-completed">
-            <CheckCircle2 className="w-5 h-5" />
-            <h3 className="label !text-status-completed m-0">WORKFLOW COMPLETE</h3>
-          </div>
+    <div className="space-y-12 mt-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      
+      {/* Workflow Complete Money Shot */}
+      <div className="neo-box-lg border-accent-green bg-accent-green text-base-surface p-8">
+        <div className="flex items-center gap-4 mb-10">
+          <Check className="w-12 h-12" />
+          <h3 className="text-4xl lg:text-5xl font-bold tracking-tighter m-0 uppercase leading-none">WORKFLOW<br/>COMPLETE</h3>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 bg-base-surface text-text-primary border-3 border-base-border p-6 shadow-neo">
           <ResultItem label="ACTION" value={executionResult?.action?.replace('_', ' ').toUpperCase()} />
           
           {executionResult?.incident_id && (
@@ -83,21 +68,22 @@ export function AutomationResult({ data }) {
           <ResultItem label="DEPARTMENT" value={executionResult?.department?.toUpperCase()} />
           
           <div>
-            <span className="label block mb-2 text-text-secondary">PRIORITY</span>
+            <span className="label block mb-2 text-text-muted">PRIORITY</span>
             <PriorityIndicator priority={ticket.priority} />
           </div>
         </div>
+      </div>
 
-        <div className="divider mb-6" />
-        
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="label m-0 text-text-secondary">CUSTOMER RESPONSE</h3>
-            <span className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded border ${responseSource === 'fallback' ? 'border-status-pending text-text-muted' : 'border-status-processing/30 text-status-processing/70'}`}>
-              {responseSource === 'fallback' ? 'FALLBACK' : 'GEMINI'}
+      {/* Customer Response Document */}
+      <div>
+        <h3 className="label mb-4 text-lg">CUSTOMER RESPONSE</h3>
+        <div className="neo-box-lg bg-[#f4f4f0] p-8 md:p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4">
+             <span className={`text-xs font-bold uppercase font-mono tracking-widest px-3 py-1 border-3 border-base-border shadow-neo ${responseSource === 'fallback' ? 'bg-base-surface text-text-primary' : 'bg-accent-blue text-base-surface'}`}>
+              SOURCE: {responseSource === 'fallback' ? 'FALLBACK' : 'GEMINI'}
             </span>
           </div>
-          <div className="p-5 bg-base-bg border border-base-border rounded text-sm whitespace-pre-wrap text-text-primary leading-relaxed font-sans shadow-inner">
+          <div className="text-lg whitespace-pre-wrap text-text-primary leading-relaxed font-sans font-medium max-w-3xl mt-4">
             {customerResponse}
           </div>
         </div>
@@ -110,8 +96,8 @@ function ResultItem({ label, value }) {
   if (!value) return null;
   return (
     <div>
-      <span className="label block mb-2 text-text-secondary">{label}</span>
-      <span className="font-mono text-sm text-text-primary">{value}</span>
+      <span className="label block mb-2 text-text-muted">{label}</span>
+      <span className="font-mono text-lg font-bold text-text-primary">{value}</span>
     </div>
   );
 }

@@ -51,72 +51,77 @@ export function AutomationTimeline({ isRunning, onComplete, finalData, hideBox =
   }, [isRunning, finalData, hasError, failedStageIdx, onComplete]);
 
   const content = (
-    <>
-      {!hideBox && <h3 className="label mb-6">AUTONOMOUS EXECUTION</h3>}
-      <div className="flex flex-col relative">
-        <div className="absolute left-3 top-2 bottom-6 w-px bg-base-border" />
-        
-        <div className="space-y-6">
-          {STAGES.map((stage, idx) => {
-            const isPending = currentStageIdx < idx;
-            const isActive = currentStageIdx === idx && !hasError;
-            const isCompleted = currentStageIdx > idx;
-            const isFailed = currentStageIdx === idx && hasError;
+    <div className="flex flex-col relative w-full">
+      <div className="space-y-0">
+        {STAGES.map((stage, idx) => {
+          const isPending = currentStageIdx < idx;
+          const isActive = currentStageIdx === idx && !hasError;
+          const isCompleted = currentStageIdx > idx;
+          const isFailed = currentStageIdx === idx && hasError;
 
-            let statusIcon = null;
-            let textColor = 'text-text-muted';
-            let dotColor = 'bg-base-border';
-            
-            if (isFailed) {
-              statusIcon = <X className="w-4 h-4 text-status-failed" />;
-              textColor = 'text-status-failed';
-              dotColor = 'bg-status-failed shadow-[0_0_8px_rgba(239,68,68,0.4)]';
-            } else if (isCompleted) {
-              statusIcon = <Check className="w-4 h-4 text-status-completed" />;
-              textColor = 'text-text-primary';
-              dotColor = 'bg-status-completed';
-            } else if (isActive) {
-              statusIcon = <Loader2 className="w-4 h-4 text-status-processing animate-spin" />;
-              textColor = 'text-status-processing';
-              dotColor = 'bg-status-processing shadow-[0_0_8px_rgba(59,130,246,0.4)]';
-            }
+          let statusIcon = null;
+          let boxColor = 'bg-base-surface border-3 border-base-border';
+          let textColor = 'text-text-primary';
+          
+          if (isFailed) {
+            boxColor = 'bg-accent-red border-3 border-base-border';
+            textColor = 'text-base-surface';
+            statusIcon = <X className="w-5 h-5" />;
+          } else if (isCompleted) {
+            boxColor = 'bg-accent-green border-3 border-base-border';
+            textColor = 'text-base-surface';
+            statusIcon = <Check className="w-5 h-5" />;
+          } else if (isActive) {
+            boxColor = 'bg-accent-yellow border-3 border-base-border shadow-neo';
+            textColor = 'text-text-primary';
+            statusIcon = <Loader2 className="w-5 h-5 animate-spin" />;
+          } else {
+            textColor = 'text-text-muted border-text-muted';
+            boxColor = 'bg-base-bg border-3 border-base-border border-dashed';
+          }
 
-            const duration = isCompleted || isFailed ? ((Math.random() * 0.6) + 0.1).toFixed(2) + 's' : '—';
+          const duration = isCompleted || isFailed ? ((Math.random() * 0.6) + 0.1).toFixed(2) + 's' : '—';
 
-            return (
-              <div key={stage.id} className={`flex items-start gap-5 relative z-10 transition-opacity duration-300 ${isPending ? 'opacity-30' : 'opacity-100'}`}>
-                <div className="flex flex-col items-center justify-start pt-1.5 w-6">
-                  <div className={`w-2 h-2 rounded-full ${dotColor} transition-colors duration-300`} />
-                </div>
-                
-                <div className="flex-1 pb-2">
-                  <div className={`font-mono text-sm tracking-widest ${textColor} uppercase`}>
-                    {stage.label}
+          return (
+            <div key={stage.id} className="flex flex-col items-center">
+              <div className={`w-full flex items-center justify-between p-4 ${boxColor} transition-all duration-300 ${!isPending ? 'shadow-neo mb-2' : ''}`}>
+                <div className="flex items-center gap-4">
+                  <span className={`font-mono text-2xl font-bold ${textColor}`}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </span>
+                  <div className="flex flex-col">
+                    <span className={`font-bold text-lg uppercase tracking-widest ${textColor}`}>
+                      {stage.label}
+                    </span>
+                    <span className={`text-sm ${isFailed || isCompleted ? 'text-base-surface' : 'text-text-secondary'}`}>
+                      {stage.desc}
+                    </span>
                   </div>
-                  <div className="text-text-secondary text-xs mt-1 leading-relaxed">
-                    {stage.desc}
-                  </div>
                 </div>
-                <div className="flex items-center gap-3 w-16 justify-end pt-1">
+                <div className={`flex flex-col items-end ${textColor}`}>
                   {statusIcon}
-                  <span className="font-mono text-xs text-text-secondary min-w-[32px] text-right">
+                  <span className="font-mono text-sm font-bold mt-1">
                     {isCompleted || isFailed ? duration : ''}
                   </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              {/* Connector */}
+              {idx < STAGES.length - 1 && (
+                <div className={`w-1 h-8 ${isCompleted ? 'bg-text-primary' : 'bg-base-border'} my-1`} />
+              )}
+            </div>
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 
   if (hideBox) {
-    return <div className="p-4">{content}</div>;
+    return content;
   }
 
   return (
-    <div className="border border-base-border bg-base-surface p-6 rounded mt-6">
+    <div className="w-full">
       {content}
     </div>
   );

@@ -12,22 +12,24 @@ export function MetricsStrip({ metrics }) {
   const active = metrics.by_status?.find(s => s.status === 'processing')?.count || 0;
 
   return (
-    <div className="flex items-center gap-12 py-6 border-b border-base-border">
-      <MetricItem label="AUTOMATIONS" value={total.toLocaleString()} />
-      <MetricItem label="SUCCESS RATE" value={`${successRate}%`} />
-      <MetricItem label="AVG. RUN" value={`${avgTime}s`} />
-      <MetricItem label="ACTIVE" value={active.toString().padStart(2, '0')} highlight={active > 0} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+      <MetricItem label="AUTOMATIONS" value={total.toLocaleString()} accentClass="bg-accent-yellow text-text-primary" />
+      <MetricItem label="SUCCESS RATE" value={`${successRate}%`} accentClass="bg-accent-blue text-base-surface" />
+      <MetricItem label="AVG. RUN" value={`${avgTime}s`} accentClass="bg-accent-green text-base-surface" />
+      <MetricItem label="ACTIVE" value={active.toString().padStart(2, '0')} accentClass="bg-accent-red text-base-surface" />
     </div>
   );
 }
 
-function MetricItem({ label, value, highlight }) {
+function MetricItem({ label, value, accentClass }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="label">{label}</span>
-      <span className={`font-mono text-2xl tracking-tight ${highlight ? 'text-status-processing' : 'text-text-primary'}`}>
+    <div className="border-3 border-base-border bg-base-surface shadow-neo flex flex-col">
+      <div className={`px-4 py-2 border-b-3 border-base-border font-bold text-xs tracking-widest uppercase ${accentClass}`}>
+        {label}
+      </div>
+      <div className="px-4 py-6 font-mono text-4xl font-bold tracking-tighter text-text-primary">
         {value}
-      </span>
+      </div>
     </div>
   );
 }

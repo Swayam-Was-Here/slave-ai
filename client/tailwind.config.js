@@ -7,42 +7,51 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+        sans: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'Menlo', 'monospace'],
       },
       colors: {
-        // Base surfaces
         base: {
-          bg:      '#09090b', // Zinc 950
-          surface: '#121214', // Slightly lighter
-          elevated:'#18181b', // Zinc 900
-          border:  '#27272a', // Zinc 800
-          hover:   '#1f1f22',
+          bg:      '#fdfcf8', // Warm off-white cream
+          surface: '#ffffff', // Pure white for cards/panels
+          border:  '#111111', // Near-black for thick borders
+          hover:   '#f4f4f0',
         },
-        // Text
         text: {
-          primary:   '#f4f4f5', // Zinc 50
-          secondary: '#a1a1aa', // Zinc 400
-          muted:     '#52525b', // Zinc 600
+          primary:   '#111111', // Near black
+          secondary: '#333333',
+          muted:     '#666666',
         },
-        // Priority
+        accent: {
+          yellow: '#fde047', // Construction yellow
+          red:    '#ef4444', // Strong red
+          blue:   '#3b82f6', // Cobalt blue
+          green:  '#22c55e', // Strong green
+        },
         priority: {
           critical: '#ef4444',
-          high:     '#f97316',
-          medium:   '#eab308',
-          low:      '#71717a',
+          high:     '#fde047',
+          medium:   '#3b82f6',
+          low:      '#22c55e',
         },
-        // Status
         status: {
-          pending:    '#71717a',
+          pending:    '#f4f4f0',
           processing: '#3b82f6',
           completed:  '#22c55e',
           failed:     '#ef4444',
         },
       },
-      borderColor: {
-        DEFAULT: '#27272a',
+      borderWidth: {
+        '3': '3px',
       },
+      borderColor: {
+        DEFAULT: '#111111',
+      },
+      boxShadow: {
+        'neo': '4px 4px 0px #111111',
+        'neo-lg': '6px 6px 0px #111111',
+        'neo-active': '0px 0px 0px #111111',
+      }
     },
   },
   plugins: [],

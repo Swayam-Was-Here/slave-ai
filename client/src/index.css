@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -27,36 +27,52 @@
     @apply cursor-pointer;
   }
 
-  /* Scrollbar — minimal, dark */
+  /* Scrollbar — neo-brutalist, dark */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: #fdfcf8;
+    border-left: 2px solid #111111;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-base-border rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #2a2a2a;
+    @apply bg-base-border;
+    border: 2px solid #111111;
   }
 }
 
 /* ─── Utility components ────────────────────────────────────────────────────── */
 @layer components {
-  /* Label — all-caps, tracked, muted */
+  /* Label — all-caps, tracked, bold */
   .label {
-    @apply text-xs font-medium tracking-widest uppercase text-text-secondary;
+    @apply text-xs font-bold tracking-[0.1em] uppercase text-text-primary;
   }
 
   /* Divider */
   .divider {
-    @apply border-t border-base-border;
+    @apply border-t-3 border-base-border;
   }
 
   /* Monospace text */
   .mono {
-    @apply font-mono text-xs;
+    @apply font-mono text-xs font-bold;
+  }
+
+  /* Neo Brutalist Components */
+  .neo-box {
+    @apply border-3 border-base-border bg-base-surface shadow-neo transition-transform duration-200;
+  }
+
+  .neo-box-lg {
+    @apply border-4 border-base-border bg-base-surface shadow-neo-lg transition-transform duration-200;
+  }
+
+  .neo-btn {
+    @apply border-3 border-base-border bg-base-border text-base-surface font-bold px-6 py-3 shadow-neo uppercase tracking-widest transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-neo-active hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-neo-lg;
+  }
+  
+  .neo-btn-secondary {
+    @apply border-3 border-base-border bg-base-surface text-text-primary font-bold px-6 py-3 shadow-neo uppercase tracking-widest transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-neo-active hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-neo-lg hover:bg-accent-yellow;
   }
 }
