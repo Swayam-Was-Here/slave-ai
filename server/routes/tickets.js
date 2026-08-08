@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../db/database.js';
-import { stepClassify, stepDecide, stepExecute, runPipeline } from '../automation/pipeline.js';
+import { stepClassify, stepDecide, stepExecute, stepRespond, stepComplete, runPipeline } from '../automation/pipeline.js';
 
 const router = Router();
 
@@ -375,9 +375,53 @@ router.post('/:id/execute', (req, res) => {
 });
 
 /**
+ * POST /api/tickets/:id/respond
+ *
+ * Phase 5 endpoint: manually run response generation.
+ */
+router.post('/:id/respond', async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  if (ticket.status === 'processing') {
+    return res.status(422).json({
+      error: 'Ticket has not finished execution. Cannot respond yet.',
+      ticket_id: ticket.id,
+      status: ticket.status,
+    });
+  }
+
+  // Find the last execution result from the audit log
+  const executeLog = db.prepare(`SELECT detail FROM audit_log WHERE ticket_id = ? AND step = 'execute' AND status = 'done' ORDER BY id DESC LIMIT 1`).get(id);
+  const executionResult = executeLog ? JSON.parse(executeLog.detail) : null;
+
+  try {
+    await stepRespond(db, ticket, executionResult);
+  } catch (err) {
+    console.error(`[respond] ticket #${id} response error:`, err.message);
+    return res.status(500).json({
+      error: 'Response generation error',
+      detail: err.message,
+      ticket_id: Number(id),
+    });
+  }
+
+  const updatedTicket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  const auditLog = db.prepare('SELECT * FROM audit_log WHERE ticket_id = ? ORDER BY created_at ASC').all(id);
+
+  res.json({
+    ticket: updatedTicket,
+    audit_log: auditLog,
+  });
+});
+
+/**
  * POST /api/tickets/:id/automate
  *
- * Runs the full automation pipeline: classify -> decide -> execute
+ * Runs the full automation pipeline: classify -> decide -> execute -> respond -> complete
  */
 router.post('/:id/automate', async (req, res) => {
   const db = getDb();

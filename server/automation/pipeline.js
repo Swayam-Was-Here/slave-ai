@@ -152,18 +152,12 @@ export function stepDecide(db, ticket, classification) {
 }
 
 import { executeAction }   from './execute.js';
+import { generateResponse } from './respond.js';
 
 // ─── Phase 4 ──────────────────────────────────────────────────────────────────
 
 /**
  * Step 3: Execute Action
- * Routes to the specific action handler (resolve, escalate, create_incident, create_kb)
- * which updates database state.
- *
- * @param {object} db             - better-sqlite3 instance
- * @param {object} ticket         - ticket row from DB
- * @param {object} decision       - decision object {action, reason, confidence}
- * @returns {object} execution result
  */
 export function stepExecute(db, ticket, decision) {
   writeAudit(db, ticket.id, 'execute', 'started', { action: decision.action });
@@ -181,16 +175,53 @@ export function stepExecute(db, ticket, decision) {
   return result;
 }
 
-// ─── Phase 5 stubs ────────────────────────────────────────────────────────────
-// export async function stepRespond(db, ticket, executionResult) { /* Phase 5 */ }
-// export function stepComplete(db, ticket) { /* Phase 5 */ }
+// ─── Phase 5 ──────────────────────────────────────────────────────────────────
+
+/**
+ * Step 4: Respond
+ * Generates the customer-facing response based on the execution result.
+ */
+export async function stepRespond(db, ticket, executionResult) {
+  writeAudit(db, ticket.id, 'respond', 'started');
+
+  let responseData;
+  try {
+    responseData = await generateResponse(ticket, executionResult);
+  } catch (err) {
+    writeAudit(db, ticket.id, 'respond', 'error', { error: err.message });
+    patchTicket(db, ticket.id, { status: 'failed' });
+    throw err;
+  }
+
+  // Store response in DB
+  patchTicket(db, ticket.id, {
+    customer_response: responseData.customerResponse,
+    response_source: responseData.responseSource
+  });
+
+  writeAudit(db, ticket.id, 'respond', 'done', {
+    source: responseData.responseSource,
+    response_length: responseData.customerResponse.length
+  });
+
+  return responseData;
+}
+
+/**
+ * Step 5: Complete
+ * Finalizes the pipeline. (Status is actually already set to 'completed' by the execute action, 
+ * but this serves as a final pipeline checkpoint).
+ */
+export function stepComplete(db, ticket) {
+  writeAudit(db, ticket.id, 'complete', 'done', { status: 'Pipeline fully executed' });
+}
 
 // ─── Full pipeline ────────────────────────────────────────────────────────────
 
 /**
  * Run the full automation pipeline for a ticket.
  *
- * Phase 4 implements: classify → decide → execute
+ * Phase 5 implements: classify → decide → execute → respond → complete
  *
  * @param {number} ticketId
  */
@@ -205,7 +236,6 @@ export async function runPipeline(ticketId) {
 
   console.log(`[pipeline] Starting pipeline for ticket #${ticketId}`);
 
-  // Create automation_run record
   const runResult = db.prepare(
     `INSERT INTO automation_runs (ticket_id, status) VALUES (?, 'running')`
   ).run(ticketId);
@@ -229,9 +259,14 @@ export async function runPipeline(ticketId) {
     const executionResult = stepExecute(db, ticketAfterDecide, decision);
     console.log(`[pipeline] #${ticketId} executed:`, executionResult.result);
 
-    // ── Steps 4-5: Respond / Complete (Phase 5) ─────────────────
-    // TODO Phase 5: await stepRespond(db, updatedTicket, executionResult);
-    // TODO Phase 5: stepComplete(db, updatedTicket);
+    // ── Step 4: Respond ────────────────────────────────────────────────────
+    const ticketAfterExecute = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    const responseData = await stepRespond(db, ticketAfterExecute, executionResult);
+    console.log(`[pipeline] #${ticketId} responded via ${responseData.responseSource}`);
+
+    // ── Step 5: Complete ───────────────────────────────────────────────────
+    const ticketAfterRespond = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    stepComplete(db, ticketAfterRespond);
 
     const duration = Date.now() - startTime;
     db.prepare(`
@@ -245,7 +280,9 @@ export async function runPipeline(ticketId) {
        ticket: db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId),
        classification,
        decision,
-       executionResult
+       executionResult,
+       customerResponse: responseData.customerResponse,
+       responseSource: responseData.responseSource
     };
   } catch (err) {
     console.error(`[pipeline] #${ticketId} pipeline failed:`, err.message);

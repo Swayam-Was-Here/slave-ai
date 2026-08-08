@@ -35,6 +35,7 @@ export function getDb() {
     'ALTER TABLE tickets ADD COLUMN intent TEXT',
     'ALTER TABLE tickets ADD COLUMN recommended_action TEXT',
     'ALTER TABLE tickets ADD COLUMN analysis_source TEXT',
+    'ALTER TABLE tickets ADD COLUMN response_source TEXT',
   ];
   for (const sql of newColumns) {
     try {
