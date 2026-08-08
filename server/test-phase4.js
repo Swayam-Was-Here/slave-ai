@@ -26,7 +26,8 @@ function assert(label, got, expected) {
   }
 }
 
-const BASE = 'http://localhost:3001/api';
+const TEST_PORT = process.env.TEST_PORT || 3001;
+const BASE = `http://localhost:${TEST_PORT}/api`;
 
 async function post(path, body) {
   const r = await fetch(`${BASE}${path}`, {
@@ -48,7 +49,8 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const db = new Database(join(__dirname, 'slave.db'));
+const DB_PATH = process.env.DATABASE_PATH || join(__dirname, 'slave.db');
+const db = new Database(DB_PATH);
 
 async function runPhase4Tests() {
   console.log(`\n${BOLD}Phase 4 — Execution & Automate Tests${RESET}\n`);

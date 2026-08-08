@@ -232,7 +232,8 @@ if (process.argv.includes('--unit-only')) {
 console.log(`\n${BOLD}Phase 3 — Integration Tests (HTTP API, AI_FALLBACK=true)${RESET}`);
 console.log('Make sure the server is running with AI_FALLBACK=true on :3001\n');
 
-const BASE = 'http://localhost:3001/api';
+const TEST_PORT = process.env.TEST_PORT || 3001;
+const BASE = `http://localhost:${TEST_PORT}/api`;
 
 async function post(path, body) {
   const r = await fetch(`${BASE}${path}`, {
@@ -242,6 +243,15 @@ async function post(path, body) {
   });
   return { status: r.status, data: await r.json() };
 }
+
+// Access SQLite directly to verify DB state
+import Database from 'better-sqlite3';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DB_PATH = process.env.DATABASE_PATH || join(__dirname, 'slave.db');
+const db = new Database(DB_PATH);
 
 async function get(path) {
   const r = await fetch(`${BASE}${path}`);

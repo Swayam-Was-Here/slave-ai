@@ -9,7 +9,8 @@
     "setup": "npm run install:all && cp -n .env.example server/.env || true",
     "seed:demo": "node server/db/seed-demo.js",
     "build": "npm run install:all && npm run build --prefix client",
-    "start": "NODE_ENV=production node server/index.js"
+    "start": "NODE_ENV=production node server/index.js",
+    "test": "node server/run-tests.js"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"
