@@ -42,12 +42,29 @@ export function AutomationResult({ data }) {
     );
   }
 
+  // Extract source from audit log for response if available, or just rely on ticket properties
+  const analysisSource = ticket.analysis_source || 'gemini';
+  
+  // Look for respond step in audit log
+  const respondLog = audit_log?.find(l => l.step === 'respond' && l.status === 'done');
+  let responseSource = 'gemini';
+  if (respondLog && respondLog.detail) {
+    try {
+      const detail = JSON.parse(respondLog.detail);
+      if (detail.source) responseSource = detail.source;
+    } catch (e) {
+      // ignore
+    }
+  }
+
   return (
     <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="border border-base-border bg-base-surface p-6 rounded shadow-sm">
-        <div className="flex items-center gap-3 mb-6 text-status-completed">
-          <CheckCircle2 className="w-5 h-5" />
-          <h3 className="label !text-status-completed m-0">AUTOMATION COMPLETE</h3>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3 text-status-completed">
+            <CheckCircle2 className="w-5 h-5" />
+            <h3 className="label !text-status-completed m-0">WORKFLOW COMPLETE</h3>
+          </div>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
@@ -74,7 +91,12 @@ export function AutomationResult({ data }) {
         <div className="divider mb-6" />
         
         <div>
-          <h3 className="label mb-4 text-text-secondary">CUSTOMER RESPONSE</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="label m-0 text-text-secondary">CUSTOMER RESPONSE</h3>
+            <span className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded border ${responseSource === 'fallback' ? 'border-status-pending text-text-muted' : 'border-status-processing/30 text-status-processing/70'}`}>
+              {responseSource === 'fallback' ? 'FALLBACK' : 'GEMINI'}
+            </span>
+          </div>
           <div className="p-5 bg-base-bg border border-base-border rounded text-sm whitespace-pre-wrap text-text-primary leading-relaxed font-sans shadow-inner">
             {customerResponse}
           </div>

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently --names \"server,client\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "install:all": "npm install --prefix server && npm install --prefix client",
-    "setup": "npm run install:all && cp -n .env.example server/.env || true"
+    "setup": "npm run install:all && cp -n .env.example server/.env || true",
+    "seed:demo": "node server/db/seed-demo.js"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"
