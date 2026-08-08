@@ -1,0 +1,14 @@
+{
+  "name": "slave",
+  "version": "1.0.0",
+  "description": "SLAVE — Self-operating Logic & Autonomous Virtual Executor",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"server,client\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "setup": "npm run install:all && cp -n .env.example server/.env || true"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

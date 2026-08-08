@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base resets ──────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-base-bg text-text-primary font-sans;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  /* Remove default button/input styles */
+  button {
+    @apply cursor-pointer;
+  }
+
+  /* Scrollbar — minimal, dark */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-base-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a2a2a;
+  }
+}
+
+/* ─── Utility components ────────────────────────────────────────────────────── */
+@layer components {
+  /* Label — all-caps, tracked, muted */
+  .label {
+    @apply text-xs font-medium tracking-widest uppercase text-text-secondary;
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-base-border;
+  }
+
+  /* Monospace text */
+  .mono {
+    @apply font-mono text-xs;
+  }
+}
