@@ -6,8 +6,8 @@ import { dirname, join } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Database file path — defaults to ./slave.db next to the server root.
-// Override with DB_PATH env var if needed.
-const DB_PATH = process.env.DB_PATH || join(__dirname, '..', 'slave.db');
+// Override with DATABASE_PATH or DB_PATH env var if needed.
+const DB_PATH = process.env.DATABASE_PATH || process.env.DB_PATH || join(__dirname, '..', 'slave.db');
 
 let _db = null;
 

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: slave
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PATH
+        value: /var/data/slave.db
+      - key: GEMINI_API_KEY
+        sync: false
+    disk:
+      name: slavedb
+      mountPath: /var/data
+      sizeGB: 1

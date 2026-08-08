@@ -4,6 +4,11 @@ import cors from 'cors';
 import { getDb, closeDb } from './db/database.js';
 import healthRouter from './routes/health.js';
 import ticketsRouter from './routes/tickets.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3001;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
@@ -16,7 +21,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: CLIENT_ORIGIN,
+    origin: process.env.NODE_ENV === 'production' ? '*' : CLIENT_ORIGIN,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type'],
   })
@@ -39,10 +44,21 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/health', healthRouter);
 app.use('/api/tickets', ticketsRouter);
 
-// 404 handler — catches any unmatched route
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientBuildPath));
+
+  // SPA Fallback
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  // 404 handler for API routes in development
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'Not found' });
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global error handler
@@ -64,8 +80,8 @@ function start() {
   // Initialise DB before accepting traffic
   getDb();
 
-  const server = app.listen(PORT, () => {
-    console.log(`[server] SLAVE API running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[server] SLAVE API running on http://0.0.0.0:${PORT}`);
     console.log(`[server] Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 
